@@ -12,7 +12,7 @@ datasetId  = "gabina02"
 projectId  = "gabina"
 
 [dataset]
-dataFN       = "Kostomlaty_monitoring_ANN_modified.xlsx"
+dataFN       = "Kostomlaty_elastic_ANN_v2.xlsx"
 inSheet      = "INPUT ANN"
 inColOffset  = 1
 outSheet     = "OUTPUT ANN"

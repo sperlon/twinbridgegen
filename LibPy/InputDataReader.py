@@ -77,7 +77,7 @@ def ReadInputData(setupOptions, runCfg):
         maxC = i
     if setupOptions.verbose > verboseLevel:
       print('sheet:', sheetName, vSheet.max_row, vSheet.max_column, maxC)
-    colSheetNames = [vSheet[1][c].value for c in range(0, maxC + 1)]
+    colSheetNames = [vSheet[1][c].value.replace("\n", " ") for c in range(0, maxC + 1)]
     colSheetUnits = [vSheet[2][c].value for c in range(0, maxC + 1)]
     colNames = ['sample'] + colSheetNames[colOffset:]
     if setupOptions.verbose > verboseLevel:

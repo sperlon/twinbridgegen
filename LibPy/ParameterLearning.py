@@ -33,6 +33,7 @@ import pathlib
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+
 from sklearn.model_selection import train_test_split
 from keras.layers import Input, Dense, Reshape
 from keras.models import Model, load_model
@@ -309,14 +310,14 @@ def ParameterModelEvaluation(setupOptions, runCfg):
     for i, outPar in enumerate(outParNames):
       plotDsc = {
         'outPN': outPN,
-        'graphBaseName': f'ParValueEvaluation_{outPar}_{dataPart}'.replace("\n", " "),
+        'graphBaseName': f'ParValueEvaluation_{outPar}_{dataPart}',
         'yTest': yReal[:,i],
         'yOut' : yEst[:,i],
         'imgExt': setupOptions.imgExt,
       }
       wManager.Run(GraphicWorkers.ParValueEvaluationWorker, (plotDsc,))
 
-      plotDsc['graphBaseName'] = f'ParValueEvaluation_{outPar}_{dataPart}_Diff'.replace("\n", " ")
+      plotDsc['graphBaseName'] = f'ParValueEvaluation_{outPar}_{dataPart}_Diff'
       wManager.Run(GraphicWorkers.ParValueEvaluationDiffWorker, (plotDsc,))
 
   wManager.Join()
