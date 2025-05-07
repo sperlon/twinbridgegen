@@ -1,0 +1,38 @@
+# appDefaultValues.toml
+
+[appPaths]
+rootInPN   = "/home/pb/Data"
+rootOutPN  = "/home/pb/DataOut"
+runCfgFN   = "runParsEx.toml"
+
+[runIds]
+expTag     = "Exp1"
+expTestTag = "Exp1"
+datasetId  = "gabina01"
+projectId  = "gabina"
+
+[dataset]
+dataFN       = "Kostomlaty_elastic_ANN_v2.xlsx"
+inSheet      = "INPUT ANN"
+inColOffset  = 1
+outSheet     = "OUTPUT ANN"
+outColOffset = 1
+inPars       = "#ALL#"
+outPars      = "#ALL#"
+
+[training]
+verbose         = 4
+testSize        = 0.2
+denseLayers     = "2000,1000,500,500,200,100"
+epochN          = 1500
+learningRate    = 10e-4
+loss            = "mean_squared_error"
+metrics         = "mae,mse"
+validationSplit = 0.2
+randomSeed      = 42
+xPlotGroups     = ""
+xPlotLabels     = ""
+
+[others]
+imgExt          = 'jpg'
+acknowledgement = """The “Digital twin for increased reliability and sustainability of concrete bridges” project has been financed with the state support of the Technology Agency of the Czech Republic and the Ministry of Transport of the Czech Republic within the TRANSPORT 2020+ Programme."""
