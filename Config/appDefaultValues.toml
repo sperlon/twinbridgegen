@@ -1,15 +1,17 @@
+# The program will check for the input dataset path in the following order: rootInPN//projectDir//datasetDir//dataFN
+# And it will prepare the data, create the model and output and store all of those in the directory as follows: rootOutPN//projectDir//Output//datasetDir//expTag
 # appDefaultValues.toml
 
 [appPaths]
-rootInPN   = ""
-rootOutPN  = ""
+rootInPN   = "RootTest" # Path to the input working directory, in this path.
+rootOutPN  = "" # Path to where you want to store the input
 runCfgFN   = "runParsEx.toml"
 
 [runIds]
-expTag     = "Exp1"
-expTestTag = "Exp1"
-datasetId  = "gabina02"
-projectId  = "gabina"
+expTag     = "Nalepka1"
+expTestTag = "NalepkaTest1"
+datasetDir = "RandomDataset_100"
+projectDir = "projectDirTest"
 
 [dataset]
 dataFN       = "Kostomlaty_elastic_ANN_v2.xlsx"
@@ -23,8 +25,8 @@ outPars      = "#ALL#"
 [training]
 verbose         = 4
 testSize        = 0.2
-denseLayers     = "2000,1000,500,500,200,100"
-epochN          = 1500
+denseLayers     = "16,16,16,16,16"
+epochN          = 100
 learningRate    = 10e-4
 loss            = "mean_squared_error"
 metrics         = "mae,mse"

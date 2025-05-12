@@ -61,10 +61,10 @@ def CommandLine(runCfgFN, runCfg):
   rootOutPN = pathlib.Path(runCfg["appPaths"]["rootOutPN"])
 
   expTag    = runCfg["runIds"]["expTag"]
-  datasetId = runCfg["runIds"]["datasetId"]
-  projectId = runCfg["runIds"]["projectId"]
-  inPN  = rootInPN / projectId / datasetId
-  outPN = rootOutPN / projectId / "Output"
+  datasetDir = runCfg["runIds"]["datasetDir"]
+  projectDir = runCfg["runIds"]["projectDir"]
+  inPN  = rootInPN / projectDir / datasetDir
+  outPN = rootOutPN / projectDir / "Output"
 
   # Dataset selection parameters
   dataFN = runCfg["dataset"]["dataFN"]
@@ -91,8 +91,8 @@ def CommandLine(runCfgFN, runCfg):
   cliParser.add_argument('-verbose',       default = verbose,       help = 'Verbose level (I)', type = int)
   cliParser.add_argument('-expTag',        default = expTag,        help = 'Experiment label (I)')
   cliParser.add_argument('-expTestTag',    default = expTag,        help = 'Experiment testing label (I)')
-  cliParser.add_argument('-datasetId',     default = datasetId,     help = 'Dataset id (I)')
-  cliParser.add_argument('-projectId',     default = projectId,     help = 'Project id (I)')
+  cliParser.add_argument('-datasetDir',     default = datasetDir,     help = 'Dataset id (I)')
+  cliParser.add_argument('-projectDir',     default = projectDir,     help = 'Project id (I)')
   cliParser.add_argument('-imgExt',        default = imgExt,        help = 'Extension of generated diagrams (O)')
   cliParser.add_argument('-inPN',          default = inPN,          help = 'Input data path (I)')
   cliParser.add_argument('-outPN',         default = outPN,         help = 'Project and output data path (O)')
@@ -170,6 +170,9 @@ def TwinBridgeGen(appDefaultValues):
 # =======================================================================
 
 if __name__ == '__main__':
+  import tensorflow
+
+  print(f"TensorFlow Version: {tensorflow.__version__}")
   multiprocessing.freeze_support() # to avoid an issue with PyInstaller
   TwinBridgeGen(appDefaultValues)
   

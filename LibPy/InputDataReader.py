@@ -53,7 +53,7 @@ Set_C = set
 def ReadInputData(setupOptions, runCfg):
   #=====================================
   verboseLevel = 3
-  outPN = pathlib.Path(setupOptions.outPN, setupOptions.datasetId, setupOptions.expTag)
+  outPN = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTag)
   outPN.mkdir(parents=True, exist_ok=True)
   inPN = pathlib.Path(setupOptions.inPN, setupOptions.dataFN)
   wb = openpyxl.load_workbook(inPN)

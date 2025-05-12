@@ -57,7 +57,7 @@ def PlotSpec(setupOptions):
   colors     = prop_cycle.by_key()['color']
 
   return {
-    'outPN':   pathlib.Path(setupOptions.outPN, setupOptions.datasetId, setupOptions.expTag),
+    'outPN':   pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTag),
     'cMap':    'jet',
     'colors':  colors,
   }
@@ -173,7 +173,7 @@ def DataPreparation(setupOptions, runCfg, dataPool):
   #=================================================
   testSize    = setupOptions.testSize
   randomSeed  = runCfg['training']['randomSeed']
-  outPN       = pathlib.Path(setupOptions.outPN, setupOptions.datasetId, setupOptions.expTag)
+  outPN       = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTag)
 
   # Create input/output data
   inSheetName = runCfg['dataset']['inSheet']
@@ -246,7 +246,7 @@ def DataPreparation(setupOptions, runCfg, dataPool):
 
 def ParameterModelTraining(setupOptions, runCfg):
   #==============================================
-  outPN      = pathlib.Path(setupOptions.outPN, setupOptions.datasetId, setupOptions.expTag)
+  outPN      = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTag)
   annDLayers = [int(s) for s in setupOptions.denseLayers.split(',')]
   xTrain = np.load(outPN / f'xTrain.npy')
   yTrain = np.load(outPN / f'yTrain.npy')
@@ -272,8 +272,8 @@ def ParameterModelTraining(setupOptions, runCfg):
 
 def ParameterModelEvaluation(setupOptions, runCfg):
   # ===============================================
-  inPN  = pathlib.Path(setupOptions.outPN, setupOptions.datasetId, setupOptions.expTag)
-  outPN = pathlib.Path(setupOptions.outPN, setupOptions.datasetId, setupOptions.expTestTag)
+  inPN  = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTag)
+  outPN = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTestTag)
   with open(outPN / 'outParNames.pck', 'rb') as inF:
     outParNames = pickle.load(inF)
 
@@ -324,8 +324,8 @@ def ParameterModelEvaluation(setupOptions, runCfg):
 
 def ParameterModelTesting(setupOptions, runCfg):
   #=============================================
-  inPN  = pathlib.Path(setupOptions.outPN, setupOptions.datasetId, setupOptions.expTag)
-  outPN = pathlib.Path(setupOptions.outPN, setupOptions.datasetId, setupOptions.expTestTag)
+  inPN  = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTag)
+  outPN = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTestTag)
   with open(outPN / 'outParNames.pck', 'rb') as inF:
     outParNames = pickle.load(inF)
 

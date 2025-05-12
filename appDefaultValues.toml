@@ -1,9 +1,9 @@
 # appDefaultValues.toml
 
 [appPaths]
-rootInPN   = "/home/pb/Data"
-rootOutPN  = "/home/pb/DataOut"
-runCfgFN   = "runParsEx.toml"
+rootInPN   = ""
+rootOutPN  = ""
+runCfgFN   = "appDefault.toml"
 
 [runIds]
 expTag     = "Exp1"
