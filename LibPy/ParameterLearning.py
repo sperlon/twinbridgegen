@@ -171,12 +171,15 @@ class RangeScaler_C(object):
 
 def DataPreparation(setupOptions, runCfg, dataPool):
   #=================================================
-  testSize    = setupOptions.testSize
-  randomSeed  = runCfg['training']['randomSeed']
-  outPN       = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTag)
+  testSize          = setupOptions.testSize
+  randomSeed        = runCfg['training']['randomSeed']
+  outPN             = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTag)
+  trainingResultsPN =  pathlib.Path(outPN, setupOptions.trainingResultsDir)
+  modelPN           = pathlib.Path(outPN, setupOptions.modelDir)
+
 
   # Create input/output data
-  inSheetName = runCfg['dataset']['inSheet']
+  inSheetName = runCfg['trainingDataset']['inSheet']
   if setupOptions.inPars == '#ALL#':
     inParNames = dataPool[inSheetName]['colNames'][1:] # skip the index
   else:
@@ -185,7 +188,7 @@ def DataPreparation(setupOptions, runCfg, dataPool):
                         index   = dataPool[inSheetName]['index'],
                         columns = dataPool[inSheetName]['colNames'])
   inData = inData[inParNames].to_numpy()
-  outSheetName = runCfg['dataset']['outSheet']
+  outSheetName = runCfg['trainingDataset']['outSheet']
   if setupOptions.outPars == '#ALL#':
     outParNames = dataPool[outSheetName]['colNames'][1:]  # skip the index
   else:
@@ -211,6 +214,7 @@ def DataPreparation(setupOptions, runCfg, dataPool):
     xTmp    = xScaler.inverse_transform(xData)
     fName   = f'Simulation_xData.{setupOptions.imgExt}'
     xPlotSpec = plotSpec.copy()
+    xPlotSpec['outPN'] = trainingResultsPN
     xPlotSpec['yPars']   = inParNames
     xPlotSpec['yGroups'] = runCfg['training']['xPlotGroups']
     xPlotSpec['yLabels'] = runCfg['training']['xPlotLabels']
@@ -225,44 +229,44 @@ def DataPreparation(setupOptions, runCfg, dataPool):
   yTrain = yData[yTrainMap]
   yTest  = yData[yTestMap]
   if 0: print('xy', xData.shape, yData.shape, xTrain.shape, xTest.shape, yTrain.shape, yTest.shape)
-  xN = len(xData[0])
-  yN = len(yData[0])
 
   # Persist all data
-  np.save(outPN / f'xTrain.npy',    xTrain)
-  np.save(outPN / f'xTest.npy',     xTest)
-  np.save(outPN / f'yTrain.npy',    yTrain)
-  np.save(outPN / f'yTest.npy',     yTest)
-  np.save(outPN / f'xTrainMap.npy', xTrainMap)
-  np.save(outPN / f'xTestMap.npy',  xTestMap)
-  np.save(outPN / f'yTrainMap.npy', yTrainMap)
-  np.save(outPN / f'yTestMap.npy',  yTestMap)
-  xScaler.Save(outPN / f'xScaler.pck')
-  yScaler.Save(outPN / f'yScaler.pck')
-  with open(outPN / 'outParNames.pck', 'wb') as outF:
+  np.save(trainingResultsPN / f'xTrain.npy',    xTrain)
+  np.save(trainingResultsPN / f'xTest.npy',     xTest)
+  np.save(trainingResultsPN / f'yTrain.npy',    yTrain)
+  np.save(trainingResultsPN / f'yTest.npy',     yTest)
+  np.save(trainingResultsPN / f'xTrainMap.npy', xTrainMap)
+  np.save(trainingResultsPN / f'xTestMap.npy',  xTestMap)
+  np.save(trainingResultsPN / f'yTrainMap.npy', yTrainMap)
+  np.save(trainingResultsPN / f'yTestMap.npy',  yTestMap)
+  with open(modelPN / 'outParNames.pck', 'wb') as outF:
     pickle.dump(outParNames, outF)
+  xScaler.Save(modelPN / f'xScaler.pck')
+  yScaler.Save(modelPN / f'yScaler.pck')
 
   wManager.Join()
 
 def ParameterModelTraining(setupOptions, runCfg):
   #==============================================
   outPN      = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTag)
+  trainingResultsPN = pathlib.Path(outPN, setupOptions.trainingResultsDir)
+  modelPN = pathlib.Path(outPN, setupOptions.modelDir)
   annDLayers = [int(s) for s in setupOptions.denseLayers.split(',')]
-  xTrain = np.load(outPN / f'xTrain.npy')
-  yTrain = np.load(outPN / f'yTrain.npy')
+  xTrain = np.load(trainingResultsPN / f'xTrain.npy')
+  yTrain = np.load(trainingResultsPN / f'yTrain.npy')
   xN = len(xTrain[0])
   yN = len(yTrain[0])
   annModel, history = DenseModel(setupOptions, runCfg, xN, yN, annDLayers, xTrain, yTrain)
-  annModel.save(outPN / f'annModel.keras')
+  annModel.save(modelPN / f'annModel.keras')
 
   if setupOptions.verbose > 2:
     # Some graphical output
-    plot_model(annModel, to_file= outPN / f'annModel_Model.png',
+    plot_model(annModel, to_file= modelPN / f'annModel_Model.png',
                show_shapes=True, show_layer_names=True)
     wManager = WorkerManager_C()
 
     plotDsc = {
-    'outPN':          outPN,
+    'outPN':          trainingResultsPN,
     'graphBaseName':  f'annModel_TrainHistory.png',
     'history':        history.history,
     }
@@ -273,20 +277,23 @@ def ParameterModelTraining(setupOptions, runCfg):
 def ParameterModelEvaluation(setupOptions, runCfg):
   # ===============================================
   inPN  = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTag)
-  outPN = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTestTag)
-  with open(outPN / 'outParNames.pck', 'rb') as inF:
+  outPN = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTag)
+  trainingResultsPN = pathlib.Path(outPN, setupOptions.trainingResultsDir)
+  modelPN = pathlib.Path(outPN, setupOptions.modelDir)
+
+  with open(modelPN / 'outParNames.pck', 'rb') as inF:
     outParNames = pickle.load(inF)
 
   # Setting tools
   yScaler = RangeScaler_C()
-  yScaler.Load(inPN / f'yScaler.pck')
-  annModel = load_model(inPN / f'annModel.keras')
+  yScaler.Load(modelPN / f'yScaler.pck')
+  annModel = load_model(modelPN / f'annModel.keras')
 
   # Getting data
-  xTrain = np.load(inPN / f'xTrain.npy')
-  yTrain = np.load(inPN / f'yTrain.npy')
-  xTest  = np.load(outPN / f'xTest.npy')
-  yTest  = np.load(outPN / f'yTest.npy')
+  xTrain = np.load(trainingResultsPN / f'xTrain.npy')
+  yTrain = np.load(trainingResultsPN / f'yTrain.npy')
+  xTest  = np.load(trainingResultsPN / f'xTest.npy')
+  yTest  = np.load(trainingResultsPN / f'yTest.npy')
 
   # Prediction
   startTime = time.time()
@@ -309,7 +316,7 @@ def ParameterModelEvaluation(setupOptions, runCfg):
                                 ('Test',  yTestScaled,  yOutScaled)):
     for i, outPar in enumerate(outParNames):
       plotDsc = {
-        'outPN': outPN,
+        'outPN': trainingResultsPN,
         'graphBaseName': f'ParValueEvaluation_{outPar}_{dataPart}',
         'yTest': yReal[:,i],
         'yOut' : yEst[:,i],
@@ -326,16 +333,19 @@ def ParameterModelTesting(setupOptions, runCfg):
   #=============================================
   inPN  = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTag)
   outPN = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTestTag)
-  with open(outPN / 'outParNames.pck', 'rb') as inF:
+  trainingResultsPN = pathlib.Path(outPN, setupOptions.trainingResultsDir)
+  modelPN = pathlib.Path(outPN, setupOptions.modelDir)
+
+  with open(modelPN / 'outParNames.pck', 'rb') as inF:
     outParNames = pickle.load(inF)
 
   # Setting tools
   yScaler = RangeScaler_C()
-  yScaler.Load(inPN / f'yScaler.pck')
-  annModel = load_model(inPN / f'annModel.keras')
+  yScaler.Load(modelPN / f'yScaler.pck')
+  annModel = load_model(modelPN / f'annModel.keras')
 
   # Getting data
-  xTest  = np.load(outPN / f'xTest.npy')
+  xTest  = np.load(trainingResultsPN / f'xTest.npy')
 
   # Prediction
   startTime = time.time()
@@ -348,11 +358,60 @@ def ParameterModelTesting(setupOptions, runCfg):
   yOutScaled      = yScaler.inverse_transform(yOut)
 
   # Output
+  with open(trainingResultsPN / f'parPredict.csv', 'wt') as csvF:
+    parWriter = csv.writer(csvF, delimiter=',')
+    parWriter.writerow(outParNames)
+    for yRow in yOutScaled:
+      parWriter.writerow(yRow)
+
+def Predicting(dataPool, paths, verbose, runCfg):
+  modelPN = paths['modelPN']
+  outPN = paths['predictionPN']
+
+
+  inSheetName = runCfg['trainingDataset']['inSheet']
+
+  inParNames = dataPool[inSheetName]['colNames'][1:]  # skip the index
+
+
+  inData = pd.DataFrame(dataPool[inSheetName]['data'],
+                      index=dataPool[inSheetName]['index'],
+                      columns=dataPool[inSheetName]['colNames'])
+  xData = inData[inParNames].to_numpy()
+
+  xScaler = RangeScaler_C()
+  xScaler.Load(modelPN / f'xScaler.pck')
+  yScaler = RangeScaler_C()
+  yScaler.Load(modelPN / f'yScaler.pck')
+
+  xPredict = xScaler.transform(xData)
+
+  annModel = load_model(modelPN / f'annModel.keras')
+
+  # Prediction
+  startTime = time.time()
+  yOut = annModel.predict(xPredict)
+  endTime = time.time()
+
+  if verbose > 2:
+    print('Testing time:', endTime - startTime)
+
+  # Data post-processing
+  yOutScaled = yScaler.inverse_transform(yOut)
+
+
+
+  with open(modelPN / 'outParNames.pck', 'rb') as inF:
+    outParNames = pickle.load(inF)
+
+  # Output
   with open(outPN / f'parPredict.csv', 'wt') as csvF:
     parWriter = csv.writer(csvF, delimiter=',')
     parWriter.writerow(outParNames)
     for yRow in yOutScaled:
       parWriter.writerow(yRow)
+
+  pass
       
 
 # =======================================================================

@@ -38,7 +38,7 @@ from ndicts import NestedDict
 from Config import appDefaultValues
 from LibPy.InputDataReader import ReadInputData
 from LibPy.ParameterLearning import (DataPreparation, ParameterModelTraining,
-                                     ParameterModelEvaluation, ParameterModelTesting)
+                                     ParameterModelEvaluation, ParameterModelTesting, Predicting)
 
 Set_C = set
 
@@ -65,11 +65,18 @@ def CommandLine(runCfgFN, runCfg):
   projectDir = runCfg["runIds"]["projectDir"]
   inPN  = rootInPN / projectDir / datasetDir
   outPN = rootOutPN / projectDir / "Output"
+  modelDir = runCfg["runIds"]["modelDir"]
+  trainingResultsDir = runCfg["runIds"]["trainingResultsDir"]
+  predictionResultsDir = runCfg["runIds"]["predictionResultsDir"]
 
-  # Dataset selection parameters
-  dataFN = runCfg["dataset"]["dataFN"]
-  inPars = runCfg["dataset"]["inPars"]
-  outPars = runCfg["dataset"]["outPars"]
+  # Training dataset selection parameters
+  trainingDataFN = runCfg["trainingDataset"]["dataFN"]
+  trainingInPars = runCfg["trainingDataset"]["inPars"]
+  trainingOutPars = runCfg["trainingDataset"]["outPars"]
+
+  # Prediction dataset selection parameters
+  predictionDataFN = runCfg["predictionDataset"]["dataFN"]
+  predictionOutPars = runCfg["predictionDataset"]["inPars"]
 
   # Training parameters
   verbose  = runCfg["training"]["verbose"]
@@ -83,10 +90,9 @@ def CommandLine(runCfgFN, runCfg):
 
   cliParser = argparse.ArgumentParser(description = 'Top level command line',
                                       epilog      = acknowledgement)
-  cliParser.add_argument('-prepareData',   default = False,         help = 'Prepare data for training and testing', action="store_true")
+
   cliParser.add_argument('-isTraining',    default = False,         help = 'Training phase', action="store_true")
-  cliParser.add_argument('-isEvaluation',  default = False,         help = 'Evaluation phase', action="store_true")
-  cliParser.add_argument('-isTesting',     default = False,         help = 'Testing phase', action="store_true")
+  cliParser.add_argument('-isPrediction',  default = False,         help = 'Prediction phase', action="store_true")
   cliParser.add_argument('-runCfgFN',      default = runCfgFN,      help = 'Run configuration file (I)')
   cliParser.add_argument('-verbose',       default = verbose,       help = 'Verbose level (I)', type = int)
   cliParser.add_argument('-expTag',        default = expTag,        help = 'Experiment label (I)')
@@ -96,12 +102,17 @@ def CommandLine(runCfgFN, runCfg):
   cliParser.add_argument('-imgExt',        default = imgExt,        help = 'Extension of generated diagrams (O)')
   cliParser.add_argument('-inPN',          default = inPN,          help = 'Input data path (I)')
   cliParser.add_argument('-outPN',         default = outPN,         help = 'Project and output data path (O)')
-  cliParser.add_argument('-dataFN',        default = dataFN,        help = 'Input data path (I)')
-  cliParser.add_argument('-inPars',        default = inPars,        help = 'Input parameters (I)')
-  cliParser.add_argument('-outPars',       default = outPars,       help = 'Output parameters (O)')
+  cliParser.add_argument('-dataFN',        default = trainingDataFN,        help = 'Input data path (I)')
+  cliParser.add_argument('-inPars',        default = trainingInPars,        help = 'Input parameters (I)')
+  cliParser.add_argument('-outPars',       default = trainingOutPars,       help = 'Output parameters (O)')
   cliParser.add_argument('-testSize',      default = testSize,      help = 'Part size of testing data (I)')
   cliParser.add_argument('-denseLayers',   default = denseLayers,   help = 'Dense layer sizes (I)')
   cliParser.add_argument('-epochN',        default = epochN,        help = 'Number of learning epochs (I)', type = int)
+  cliParser.add_argument('-predictionDataFN', default = predictionDataFN, help = 'Prediction data path (I)')
+  cliParser.add_argument('-predictionOutPars', default = predictionOutPars, help = 'Output parameters (O)')
+  cliParser.add_argument('-modelDir', default = modelDir, help = 'Model directory name (O)')
+  cliParser.add_argument('-trainingResultsDir', default=trainingResultsDir, help='Training results directory name (O)')
+  cliParser.add_argument('-predictionResultsDir', default=predictionResultsDir, help='Prediction results directory name (O)')
 
   options = cliParser.parse_args()
   if options.verbose > 3: print('options', options)
@@ -115,6 +126,28 @@ def SetOutPN(*subFolders):
     os.makedirs(outPN)
   return outPN
 
+
+def CreatePaths(setupOptions):
+  outPN = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTag)
+
+  trainingResultsPN = pathlib.Path(outPN, setupOptions.trainingResultsDir)
+  modelPN = pathlib.Path(outPN, setupOptions.modelDir)
+  predictionResultsPN = pathlib.Path(outPN, setupOptions.predictionResultsDir)
+  inPN = pathlib.Path(setupOptions.inPN, setupOptions.dataFN)
+  predictionInPN = pathlib.Path(setupOptions.inPN, setupOptions.predictionDataFN)
+
+  trainingResultsPN.mkdir(parents = True, exist_ok = True)
+  modelPN.mkdir(parents = True, exist_ok = True)
+  predictionResultsPN.mkdir(parents = True, exist_ok = True)
+
+  Paths = {
+    "trainPN": trainingResultsPN,
+    "modelPN": modelPN,
+    "predictionPN": predictionResultsPN,
+    "trainInPN": inPN,
+    "predictionInPN": predictionInPN
+  }
+  return Paths
 # =======================================================================
 # ===================== Classes =========================================
 # =======================================================================
@@ -142,19 +175,18 @@ def TwinBridgeGen(appDefaultValues):
   setupOptions = CommandLine(initOptions.runCfgFN, runCfg)
 
   SetOutPN(setupOptions.outPN)
-  
-  if setupOptions.prepareData:
-    dataPool = ReadInputData(setupOptions, runCfg)
-    DataPreparation(setupOptions, runCfg, dataPool)
-  
+  Paths = CreatePaths(setupOptions)
+
   if setupOptions.isTraining:
+    dataPool = ReadInputData(Paths["trainInPN"], Paths["trainPN"], setupOptions.verbose, runCfg)
+    DataPreparation(setupOptions, runCfg, dataPool)
     ParameterModelTraining(setupOptions, runCfg)
-
-  if setupOptions.isEvaluation:
     ParameterModelEvaluation(setupOptions, runCfg)
-
-  if setupOptions.isTesting:
     ParameterModelTesting(setupOptions, runCfg)
+
+  if setupOptions.isPrediction:
+    dataPool = ReadInputData(Paths["predictionInPN"], Paths["trainPN"], setupOptions.verbose, runCfg, training=False)
+    Predicting(dataPool, Paths, setupOptions.verbose, runCfg)
   
 # =======================================================================
 # ===================== Resource Registration ===========================

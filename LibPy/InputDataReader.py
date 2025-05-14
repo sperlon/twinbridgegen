@@ -42,6 +42,21 @@ Set_C = set
 # ===================== Support Functions ===============================
 # =======================================================================
 
+def PrepareSheetcfg(runCfg, training=True):
+  if training:
+    inSheetName = runCfg["trainingDataset"]["inSheet"].strip()
+    inColOffset = runCfg["trainingDataset"]["inColOffset"]
+    outSheetName = runCfg["trainingDataset"]["outSheet"].strip()
+    outColOffset = runCfg["trainingDataset"]["outColOffset"]
+    sheetCfg = {
+      "inSheetName": runCfg["trainingDataset"]["inSheet"].strip(),
+      "inColOffset": runCfg["trainingDataset"]["inColOffset"],
+      "outSheetName": runCfg["trainingDataset"]["outSheet"].strip(),
+      "outColOffset": runCfg["trainingDataset"]["outColOffset"],
+      "sheetList": []
+    }
+
+
 # =======================================================================
 # ===================== Classes =========================================
 # =======================================================================
@@ -50,40 +65,43 @@ Set_C = set
 # ===================== Main Functions ==================================
 # =======================================================================
 
-def ReadInputData(setupOptions, runCfg):
+def ReadInputData(inPN, outPN, verbose, runCfg, training=True):
   #=====================================
   verboseLevel = 3
-  outPN = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTag)
-  outPN.mkdir(parents=True, exist_ok=True)
-  inPN = pathlib.Path(setupOptions.inPN, setupOptions.dataFN)
   wb = openpyxl.load_workbook(inPN)
-  if setupOptions.verbose > verboseLevel: print('sheetsN:', inPN, wb.sheetnames)
-  inSheetName  = runCfg["dataset"]["inSheet"].strip()
-  inColOffset  = runCfg["dataset"]["inColOffset"]
-  outSheetName = runCfg["dataset"]["outSheet"].strip()
-  outColOffset = runCfg["dataset"]["outColOffset"]
-  if not Set_C([inSheetName, outSheetName]) <= Set_C(wb.sheetnames):
-    print('FAILURE: required excel sheets not found.', repr(inSheetName), repr(outSheetName), wb.sheetnames)
-    exit(1)
-  dataN = None
+  if verbose > verboseLevel: print('sheetsN:', inPN, wb.sheetnames)
 
-  dataPool = {sheetName: {} for sheetName in [inSheetName, outSheetName]}
-  for sheetName, colOffset in ((inSheetName, inColOffset),
-                               (outSheetName, outColOffset)):
+  if training:
+    inSheetName  = runCfg["trainingDataset"]["inSheet"].strip()
+    inColOffset  = runCfg["trainingDataset"]["inColOffset"]
+    outSheetName = runCfg["trainingDataset"]["outSheet"].strip()
+    outColOffset = runCfg["trainingDataset"]["outColOffset"]
+    sheetNames = [inSheetName, outSheetName]
+    sheetOffsets = [inColOffset, outColOffset]
+
+  else:
+    inSheetName = runCfg["predictionDataset"]["inSheet"].strip()
+    inColOffset = runCfg["predictionDataset"]["inColOffset"]
+    sheetNames = [inSheetName]
+    sheetOffsets = [inColOffset]
+
+
+
+  if not Set_C(sheetNames) <= Set_C(wb.sheetnames):
+    print('FAILURE: required excel sheets not found.', repr(sheetNames), wb.sheetnames)
+    exit(1)
+
+  dataPool = {sheetName: {} for sheetName in sheetNames}
+  for sheetName, colOffset in zip(sheetNames, sheetOffsets):
     vSheet = wb[sheetName]
     maxC = None
     for i in range(0, vSheet.max_column):
       if vSheet[1][i].value is not None:
         maxC = i
-    if setupOptions.verbose > verboseLevel:
-      print('sheet:', sheetName, vSheet.max_row, vSheet.max_column, maxC)
+
     colSheetNames = [vSheet[1][c].value.replace("\n", " ") for c in range(0, maxC + 1)]
-    colSheetUnits = [vSheet[2][c].value for c in range(0, maxC + 1)]
     colNames = ['sample'] + colSheetNames[colOffset:]
-    if setupOptions.verbose > verboseLevel:
-      print('colSheetNames', sheetName, len(colSheetNames), colSheetNames)
-    if setupOptions.verbose > verboseLevel:
-      print('colNames', sheetName, len(colNames), colNames)
+
     indexRecords = []
     typeRecords  = []
     dataRecords  = []
@@ -97,8 +115,7 @@ def ReadInputData(setupOptions, runCfg):
       dataRecords.append([float(rowIndex)] + [float(shRow[j].value) for j in range(colOffset, maxC + 1)])
     dataRecords  = np.array(dataRecords)
     indexRecords = np.array(indexRecords, dtype=int)
-    if setupOptions.verbose > verboseLevel:
-      print('dataRecords', dataRecords.shape, dataRecords[0])
+
     np.save(outPN /f'{sheetName}_data.npy', dataRecords)
     np.save(outPN / f'{sheetName}_index.npy', indexRecords)
     with open(outPN /f'{sheetName}_index.pck', 'wb') as fOut:
@@ -106,6 +123,16 @@ def ReadInputData(setupOptions, runCfg):
       pickle.dump(typeRecords, fOut)
       pickle.dump(colNames, fOut)
     dataPool[sheetName] = {'data': dataRecords, 'index': indexRecords, 'rtype': typeRecords, 'colNames': colNames}
+
+    #Print info about input structure
+    if verbose > verboseLevel:
+      print('sheet:', sheetName, vSheet.max_row, vSheet.max_column, maxC)
+      print('colSheetNames', sheetName, len(colSheetNames), colSheetNames)
+      print('colNames', sheetName, len(colNames), colNames)
+      print('dataRecords', dataRecords.shape, dataRecords[0])
+
+
+
   return dataPool
 
 # =======================================================================
