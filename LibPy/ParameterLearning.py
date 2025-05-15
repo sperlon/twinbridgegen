@@ -86,6 +86,15 @@ def DenseModel(setupOptions, runCfg, xN, yN, layers, xTrain, yTrain):
     print('learning time:', end - start)
     annModel.summary()
   return annModel, history
+
+
+def WriteToCsv(data, path, header=None):
+  with open(path, 'wt') as csvF:
+    parWriter = csv.writer(csvF, delimiter=',')
+    if header:
+      parWriter.writerow(header)
+    for yRow in data:
+      parWriter.writerow(yRow)
   
 
 # =======================================================================
@@ -276,7 +285,6 @@ def ParameterModelTraining(setupOptions, runCfg):
 
 def ParameterModelEvaluation(setupOptions, runCfg):
   # ===============================================
-  inPN  = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTag)
   outPN = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTag)
   trainingResultsPN = pathlib.Path(outPN, setupOptions.trainingResultsDir)
   modelPN = pathlib.Path(outPN, setupOptions.modelDir)
@@ -336,9 +344,6 @@ def ParameterModelTesting(setupOptions, runCfg):
   trainingResultsPN = pathlib.Path(outPN, setupOptions.trainingResultsDir)
   modelPN = pathlib.Path(outPN, setupOptions.modelDir)
 
-  with open(modelPN / 'outParNames.pck', 'rb') as inF:
-    outParNames = pickle.load(inF)
-
   # Setting tools
   yScaler = RangeScaler_C()
   yScaler.Load(modelPN / f'yScaler.pck')
@@ -354,15 +359,15 @@ def ParameterModelTesting(setupOptions, runCfg):
   if setupOptions.verbose > 2:
     print('Testing time:', endTime - startTime)
 
-  # Data post-processing
+  # Data post-processing - transform data to its original range
   yOutScaled      = yScaler.inverse_transform(yOut)
 
   # Output
-  with open(trainingResultsPN / f'parPredict.csv', 'wt') as csvF:
-    parWriter = csv.writer(csvF, delimiter=',')
-    parWriter.writerow(outParNames)
-    for yRow in yOutScaled:
-      parWriter.writerow(yRow)
+  # Load the header
+  with open(modelPN / 'outParNames.pck', 'rb') as inF:
+    outParNames = pickle.load(inF)
+  # Save output as CSV
+  WriteToCsv(yOutScaled, trainingResultsPN / f'parPredict.csv', outParNames)
 
 def Predicting(dataPool, paths, verbose, runCfg):
   modelPN = paths['modelPN']
@@ -396,22 +401,16 @@ def Predicting(dataPool, paths, verbose, runCfg):
   if verbose > 2:
     print('Testing time:', endTime - startTime)
 
-  # Data post-processing
+  # Data post-processing - transform data to its original range
   yOutScaled = yScaler.inverse_transform(yOut)
 
 
-
+  # Output
+  # Load the header
   with open(modelPN / 'outParNames.pck', 'rb') as inF:
     outParNames = pickle.load(inF)
-
-  # Output
-  with open(outPN / f'parPredict.csv', 'wt') as csvF:
-    parWriter = csv.writer(csvF, delimiter=',')
-    parWriter.writerow(outParNames)
-    for yRow in yOutScaled:
-      parWriter.writerow(yRow)
-
-  pass
+  # Save output as CSV
+  WriteToCsv(yOutScaled, outPN / f'parPredict.csv', outParNames)
       
 
 # =======================================================================
