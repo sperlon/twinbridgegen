@@ -182,9 +182,8 @@ def DataPreparation(setupOptions, runCfg, dataPool):
   #=================================================
   testSize          = setupOptions.testSize
   randomSeed        = runCfg['training']['randomSeed']
-  outPN             = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTag)
-  trainingResultsPN =  pathlib.Path(outPN, setupOptions.trainingResultsDir)
-  modelPN           = pathlib.Path(outPN, setupOptions.modelDir)
+  trainingResultsPN =  setupOptions.trainResultsPN
+  modelPN           = setupOptions.modelPN
 
 
   # Create input/output data
@@ -250,6 +249,8 @@ def DataPreparation(setupOptions, runCfg, dataPool):
   np.save(trainingResultsPN / f'yTestMap.npy',  yTestMap)
   with open(modelPN / 'outParNames.pck', 'wb') as outF:
     pickle.dump(outParNames, outF)
+  with open(modelPN / 'inParNames.pck', 'wb') as outF:
+    pickle.dump(inParNames, outF)
   xScaler.Save(modelPN / f'xScaler.pck')
   yScaler.Save(modelPN / f'yScaler.pck')
 
@@ -257,9 +258,8 @@ def DataPreparation(setupOptions, runCfg, dataPool):
 
 def ParameterModelTraining(setupOptions, runCfg):
   #==============================================
-  outPN      = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTag)
-  trainingResultsPN = pathlib.Path(outPN, setupOptions.trainingResultsDir)
-  modelPN = pathlib.Path(outPN, setupOptions.modelDir)
+  trainingResultsPN = setupOptions.trainResultsPN
+  modelPN = setupOptions.modelPN
   annDLayers = [int(s) for s in setupOptions.denseLayers.split(',')]
   xTrain = np.load(trainingResultsPN / f'xTrain.npy')
   yTrain = np.load(trainingResultsPN / f'yTrain.npy')
@@ -283,11 +283,11 @@ def ParameterModelTraining(setupOptions, runCfg):
 
     wManager.Join()
 
-def ParameterModelEvaluation(setupOptions, runCfg):
+def ParameterModelEvaluation(setupOptions):
   # ===============================================
-  outPN = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTag)
-  trainingResultsPN = pathlib.Path(outPN, setupOptions.trainingResultsDir)
-  modelPN = pathlib.Path(outPN, setupOptions.modelDir)
+  trainingResultsPN = setupOptions.trainResultsPN
+  modelPN = setupOptions.modelPN
+
 
   with open(modelPN / 'outParNames.pck', 'rb') as inF:
     outParNames = pickle.load(inF)
@@ -337,12 +337,10 @@ def ParameterModelEvaluation(setupOptions, runCfg):
 
   wManager.Join()
 
-def ParameterModelTesting(setupOptions, runCfg):
+def ParameterModelTesting(setupOptions):
   #=============================================
-  inPN  = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTag)
-  outPN = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTestTag)
-  trainingResultsPN = pathlib.Path(outPN, setupOptions.trainingResultsDir)
-  modelPN = pathlib.Path(outPN, setupOptions.modelDir)
+  trainingResultsPN = setupOptions.trainResultsPN
+  modelPN = setupOptions.modelPN
 
   # Setting tools
   yScaler = RangeScaler_C()
@@ -369,9 +367,9 @@ def ParameterModelTesting(setupOptions, runCfg):
   # Save output as CSV
   WriteToCsv(yOutScaled, trainingResultsPN / f'parPredict.csv', outParNames)
 
-def Predicting(dataPool, paths, verbose, runCfg):
-  modelPN = paths['modelPN']
-  outPN = paths['predictionPN']
+def Predicting(setupOptions, runCfg, dataPool):
+  modelPN = setupOptions.modelPN
+  outPN = setupOptions.predResultsPN
 
 
   inSheetName = runCfg['trainingDataset']['inSheet']
@@ -384,6 +382,19 @@ def Predicting(dataPool, paths, verbose, runCfg):
                       columns=dataPool[inSheetName]['colNames'])
   xData = inData[inParNames].to_numpy()
 
+  annModel = load_model(modelPN / f'annModel.keras')
+
+  # Check whether the data have correct shape
+  data_input_shape = (None,) + xData.shape[1:]
+  model_input_shape = annModel.input_shape
+  if data_input_shape != model_input_shape:
+    raise ValueError(
+      f'''The input shape of the prediction data differs from the input shape the model was trained on. Are you sure"
+      you specified the prediction data correctly?
+      Expected shape (Model input shape): {model_input_shape}
+      Input shape of specified prediction dataset: {data_input_shape}'''
+    )
+
   xScaler = RangeScaler_C()
   xScaler.Load(modelPN / f'xScaler.pck')
   yScaler = RangeScaler_C()
@@ -391,14 +402,12 @@ def Predicting(dataPool, paths, verbose, runCfg):
 
   xPredict = xScaler.transform(xData)
 
-  annModel = load_model(modelPN / f'annModel.keras')
-
   # Prediction
   startTime = time.time()
   yOut = annModel.predict(xPredict)
   endTime = time.time()
 
-  if verbose > 2:
+  if setupOptions.verbose > 2:
     print('Testing time:', endTime - startTime)
 
   # Data post-processing - transform data to its original range

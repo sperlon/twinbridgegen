@@ -78,6 +78,19 @@ def CommandLine(runCfgFN, runCfg):
   predictionDataFN = runCfg["predictionDataset"]["dataFN"]
   predictionOutPars = runCfg["predictionDataset"]["inPars"]
 
+  # Paths
+  outPN_final = pathlib.Path(outPN, datasetDir, expTag)
+  trainResultsPN = pathlib.Path(outPN_final, trainingResultsDir)
+  modelPN = pathlib.Path(outPN_final, modelDir)
+  predResultsPN = pathlib.Path(outPN_final, predictionResultsDir)
+  trainInPN = pathlib.Path(inPN, trainingDataFN)
+  predInPN = pathlib.Path(inPN, predictionDataFN)
+
+  # Create necessary directories
+  trainResultsPN.mkdir(parents=True, exist_ok=True)
+  modelPN.mkdir(parents=True, exist_ok=True)
+  predResultsPN.mkdir(parents=True, exist_ok=True)
+
   # Training parameters
   verbose  = runCfg["training"]["verbose"]
   testSize = runCfg["training"]["testSize"]
@@ -93,6 +106,7 @@ def CommandLine(runCfgFN, runCfg):
 
   cliParser.add_argument('-isTraining',    default = False,         help = 'Training phase', action="store_true")
   cliParser.add_argument('-isPrediction',  default = False,         help = 'Prediction phase', action="store_true")
+  cliParser.add_argument('-isTestingSubPart', default=False,        help='For development', action="store_true")
   cliParser.add_argument('-runCfgFN',      default = runCfgFN,      help = 'Run configuration file (I)')
   cliParser.add_argument('-verbose',       default = verbose,       help = 'Verbose level (I)', type = int)
   cliParser.add_argument('-expTag',        default = expTag,        help = 'Experiment label (I)')
@@ -111,8 +125,14 @@ def CommandLine(runCfgFN, runCfg):
   cliParser.add_argument('-predictionDataFN', default = predictionDataFN, help = 'Prediction data path (I)')
   cliParser.add_argument('-predictionOutPars', default = predictionOutPars, help = 'Output parameters (O)')
   cliParser.add_argument('-modelDir', default = modelDir, help = 'Model directory name (O)')
-  cliParser.add_argument('-trainingResultsDir', default=trainingResultsDir, help='Training results directory name (O)')
-  cliParser.add_argument('-predictionResultsDir', default=predictionResultsDir, help='Prediction results directory name (O)')
+  cliParser.add_argument('-trainResultsDir', default=trainingResultsDir, help='Training results directory name (O)')
+  cliParser.add_argument('-predResultsDir', default=predictionResultsDir, help='Prediction results directory name (O)')
+  cliParser.add_argument('-trainResultsPN', default=trainResultsPN, help='Path where the training results are stored (O)')
+  cliParser.add_argument('-modelPN', default=modelPN, help='Path where the trained model is stored (O)')
+  cliParser.add_argument('-predResultsPN', default=predResultsPN, help='Path where the prediction results are stored (O)')
+  cliParser.add_argument('-trainInPN', default=trainInPN, help='Path to the training dataset (I)')
+  cliParser.add_argument('-predInPN', default=predInPN, help='Path to the prediction dataset (I)')
+
 
   options = cliParser.parse_args()
   if options.verbose > 3: print('options', options)
@@ -126,28 +146,6 @@ def SetOutPN(*subFolders):
     os.makedirs(outPN)
   return outPN
 
-
-def CreatePaths(setupOptions):
-  outPN = pathlib.Path(setupOptions.outPN, setupOptions.datasetDir, setupOptions.expTag)
-
-  trainingResultsPN = pathlib.Path(outPN, setupOptions.trainingResultsDir)
-  modelPN = pathlib.Path(outPN, setupOptions.modelDir)
-  predictionResultsPN = pathlib.Path(outPN, setupOptions.predictionResultsDir)
-  inPN = pathlib.Path(setupOptions.inPN, setupOptions.dataFN)
-  predictionInPN = pathlib.Path(setupOptions.inPN, setupOptions.predictionDataFN)
-
-  trainingResultsPN.mkdir(parents = True, exist_ok = True)
-  modelPN.mkdir(parents = True, exist_ok = True)
-  predictionResultsPN.mkdir(parents = True, exist_ok = True)
-
-  Paths = {
-    "trainPN": trainingResultsPN,
-    "modelPN": modelPN,
-    "predictionPN": predictionResultsPN,
-    "trainInPN": inPN,
-    "predictionInPN": predictionInPN
-  }
-  return Paths
 # =======================================================================
 # ===================== Classes =========================================
 # =======================================================================
@@ -175,18 +173,21 @@ def TwinBridgeGen(appDefaultValues):
   setupOptions = CommandLine(initOptions.runCfgFN, runCfg)
 
   SetOutPN(setupOptions.outPN)
-  Paths = CreatePaths(setupOptions)
+
+  if setupOptions.isTestingSubPart:
+    dataPool = ReadInputData(setupOptions.trainInPN, setupOptions.trainResultsPN, setupOptions.verbose, runCfg)
+    DataPreparation(setupOptions, runCfg, dataPool)
 
   if setupOptions.isTraining:
-    dataPool = ReadInputData(Paths["trainInPN"], Paths["trainPN"], setupOptions.verbose, runCfg)
+    dataPool = ReadInputData(setupOptions.trainInPN, setupOptions.trainResultsPN, setupOptions.verbose, runCfg)
     DataPreparation(setupOptions, runCfg, dataPool)
     ParameterModelTraining(setupOptions, runCfg)
-    ParameterModelEvaluation(setupOptions, runCfg)
-    ParameterModelTesting(setupOptions, runCfg)
+    ParameterModelEvaluation(setupOptions)
+    ParameterModelTesting(setupOptions)
 
   if setupOptions.isPrediction:
-    dataPool = ReadInputData(Paths["predictionInPN"], Paths["trainPN"], setupOptions.verbose, runCfg, training=False)
-    Predicting(dataPool, Paths, setupOptions.verbose, runCfg)
+    dataPool = ReadInputData(setupOptions.predInPN, setupOptions.predResultsPN, setupOptions.verbose, runCfg, training=False)
+    Predicting(setupOptions, runCfg, dataPool)
   
 # =======================================================================
 # ===================== Resource Registration ===========================
