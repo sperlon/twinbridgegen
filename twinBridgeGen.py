@@ -54,7 +54,7 @@ if 0: print('appDefaultValues', appDefaultValues)
 
 def CommandLine(runCfgFN, runCfg):
   #===============================
-  # Basic command line pars: -prepareData -isTraining isEvaluation -isTesting
+  # Basic command line pars: -prepareData -isTraining isPrediction
 
   # Command line default values
   rootInPN  = pathlib.Path(runCfg["appPaths"]["rootInPN"])
@@ -94,8 +94,31 @@ def CommandLine(runCfgFN, runCfg):
   # Training parameters
   verbose  = runCfg["training"]["verbose"]
   testSize = runCfg["training"]["testSize"]
-  denseLayers = runCfg["training"]["denseLayers"]
   epochN = runCfg["training"]["epochN"]
+  learningRate = runCfg["training"]["learningRate"]
+
+  # Model type
+  modelType = runCfg["model"]["modelType"]
+
+  # Dense model definition
+  denseLayers = runCfg["denseModel"]["Layers"]
+
+  # divided model definition
+  dividedLayers = runCfg["dividedDenseModel"]["Layers"]
+  dividedUseInverse = runCfg["dividedDenseModel"]["useInverse"]
+
+  inverseLearningRate = runCfg["dividedDenseModel"]["inverseParams"]["inverseLearningRate"]
+  inverseNIter = runCfg ["dividedDenseModel"]["inverseParams"]["n_iter"]
+  inverseBestOnly = runCfg["dividedDenseModel"]["inverseParams"]["return_best_only"]
+  inverseLowerLim = runCfg["dividedDenseModel"]["inverseParams"]["lower_limit"]
+  inverseUpperLim = runCfg["dividedDenseModel"]["inverseParams"]["upper_limit"]
+  inverseToler = runCfg["dividedDenseModel"]["inverseParams"]["tolerance"]
+  inverseMaxIter = runCfg["dividedDenseModel"]["inverseParams"]["max_iter"]
+  inversePrintFreq = runCfg["dividedDenseModel"]["inverseParams"]["print_freq"]
+
+  # multichannel model
+  multiLayers = runCfg["multiChannelModel"]["Layers"]
+  multiInput = runCfg["multiChannelModel"]["Layers"]
 
   # Other parameters
   imgExt = runCfg["others"]["imgExt"]
@@ -106,9 +129,10 @@ def CommandLine(runCfgFN, runCfg):
 
   cliParser.add_argument('-isTraining',    default = False,         help = 'Training phase', action="store_true")
   cliParser.add_argument('-isPrediction',  default = False,         help = 'Prediction phase', action="store_true")
-  cliParser.add_argument('-isTestingSubPart', default=False,        help='For development', action="store_true")
+  cliParser.add_argument('-isTestingSubPart', default=False,        help = 'For development', action="store_true")
+  cliParser.add_argument('-modelType',     default = modelType,     help = 'Specification of a model type that will be used')
   cliParser.add_argument('-runCfgFN',      default = runCfgFN,      help = 'Run configuration file (I)')
-  cliParser.add_argument('-verbose',       default = verbose,       help = 'Verbose level (I)', type = int)
+  cliParser.add_argument('-verbose',       default = verbose,       help = 'Verbose level (I)', type=int)
   cliParser.add_argument('-expTag',        default = expTag,        help = 'Experiment label (I)')
   cliParser.add_argument('-expTestTag',    default = expTag,        help = 'Experiment testing label (I)')
   cliParser.add_argument('-datasetDir',     default = datasetDir,     help = 'Dataset id (I)')
@@ -120,10 +144,22 @@ def CommandLine(runCfgFN, runCfg):
   cliParser.add_argument('-inPars',        default = trainingInPars,        help = 'Input parameters (I)')
   cliParser.add_argument('-outPars',       default = trainingOutPars,       help = 'Output parameters (O)')
   cliParser.add_argument('-testSize',      default = testSize,      help = 'Part size of testing data (I)')
-  cliParser.add_argument('-denseLayers',   default = denseLayers,   help = 'Dense layer sizes (I)')
-  cliParser.add_argument('-epochN',        default = epochN,        help = 'Number of learning epochs (I)', type = int)
+  cliParser.add_argument('-epochN',        default = epochN,        help = 'Number of learning epochs (I)', type=int)
+  cliParser.add_argument('-denseLayers',   default=denseLayers, help='Dense model layer sizes (I)')
+  cliParser.add_argument('-dividedLayers', default=dividedLayers, help='Divided model layer sizes (I)')
+  cliParser.add_argument('-dividedUseInverse', default=dividedUseInverse, help='Whether you want to find results using inverse analysis or use standard behavior. Inverse analysis can be only used with DividedModel (I)')
+  cliParser.add_argument('-inverseLearningRate', default=inverseLearningRate, help='Learning rate for inverse analysis.')
+  cliParser.add_argument('-inverseNIter', default=inverseNIter, help='Number of iterations used to find the results.')
+  cliParser.add_argument('-inverseBestOnly', default=inverseBestOnly, help='Whether return only one best iteration or every iteration in output file.')
+  cliParser.add_argument('-inverseLowerLim', default=inverseLowerLim, help='Lower limit for the iteration')
+  cliParser.add_argument('-inverseUpperLim', default=inverseUpperLim, help='Divided model layer sizes (I)')
+  cliParser.add_argument('-inverseToler', default=inverseToler, help='Divided model layer sizes (I)')
+  cliParser.add_argument('-inversePrintFreq', default=inversePrintFreq, help='Divided model layer sizes (I)')
+  cliParser.add_argument('-inverseMaxIter', default=inverseMaxIter, help='Divided model layer sizes (I)')
   cliParser.add_argument('-predictionDataFN', default = predictionDataFN, help = 'Prediction data path (I)')
   cliParser.add_argument('-predictionOutPars', default = predictionOutPars, help = 'Output parameters (O)')
+  cliParser.add_argument('-multiLayers', default=multiLayers, help='Multichannel model layer specification (I)')
+  cliParser.add_argument('-multiInput', default=multiInput, help='Multichannel input layer specification (I)')
   cliParser.add_argument('-modelDir', default = modelDir, help = 'Model directory name (O)')
   cliParser.add_argument('-trainResultsDir', default=trainingResultsDir, help='Training results directory name (O)')
   cliParser.add_argument('-predResultsDir', default=predictionResultsDir, help='Prediction results directory name (O)')
@@ -173,7 +209,7 @@ def TwinBridgeGen(appDefaultValues):
   setupOptions = CommandLine(initOptions.runCfgFN, runCfg)
 
   SetOutPN(setupOptions.outPN)
-
+  # added only for debugging
   if setupOptions.isTestingSubPart:
     dataPool = ReadInputData(setupOptions.trainInPN, setupOptions.trainResultsPN, setupOptions.verbose, runCfg)
     DataPreparation(setupOptions, runCfg, dataPool)

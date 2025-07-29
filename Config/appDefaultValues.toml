@@ -1,15 +1,15 @@
 # appDefaultValues.toml
 
 [appPaths]
-rootInPN   = "RootTest" # Path to the input working directory, in this path.
-rootOutPN  = "" # Path to where you want to store the training data
+rootInPN   = "Input" # Path to the input working directory, in this path.
+rootOutPN  = "Output" # Path to where you want to store the training data
 runCfgFN   = "runParsEx.toml"
 
 [runIds]
 expTag     = "Nalepka1"
 expTestTag = "NalepkaTest1"
-datasetDir = "RandomDataset_100"
-projectDir = "projectDirTest"
+datasetDir = "Datasets"
+projectDir = "Kostomlaty"
 modelDir = "Model"
 trainingResultsDir = 'TrainingResults'
 predictionResultsDir = 'Prediction'
@@ -24,7 +24,7 @@ inPars       = "#ALL#"
 outPars      = "#ALL#"
 
 [predictionDataset]
-dataFN       = "PredictionTest.xlsx"
+dataFN       = "Prediction.xlsx"
 inSheet      = "INPUT ANN"
 inColOffset  = 1
 inPars       = "#ALL#"
@@ -32,8 +32,7 @@ inPars       = "#ALL#"
 [training]
 verbose         = 4
 testSize        = 0.2
-denseLayers     = "2000,1000,500,500,200,100"
-epochN          = 1500
+epochN          = 250
 learningRate    = 10e-4
 loss            = "mean_squared_error"
 metrics         = "mae,mse"
@@ -41,6 +40,30 @@ validationSplit = 0.2
 randomSeed      = 42
 xPlotGroups     = ""
 xPlotLabels     = ""
+
+[model]
+modelType = "denseModel"
+
+[denseModel]
+Layers     = "16, 64, 128, 256, 512, 1024, 512, 256, 128, 64, 16"
+
+[dividedDenseModel]
+Layers     = "16, 64, 128, 256, 512, 1024, 512, 256, 128, 64, 16"
+useInverse = "False"
+
+[dividedDenseModel.inverseParams]
+inverseLearningRate = 1e-2
+n_iter = 20
+return_best_only = "True"
+lower_limit = 0
+upper_limit = 0
+tolerance = 1e-7
+max_iter = 2000
+print_freq = 100
+
+[multiChannelModel]
+Layers  = "[[['LSTM', 256], ['LSTM', 256], [Dense, 256, 'relu'], [Dense, 128, 'relu'], [Dense, 64, 'relu'], [Dense, 16, 'relu'], [Dense, 8]], [[Dense, 8, 'relu']]]"
+Inputs = "[[1], [2:]]"
 
 [others]
 imgExt          = 'jpg'
