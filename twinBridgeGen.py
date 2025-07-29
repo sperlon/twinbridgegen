@@ -118,7 +118,7 @@ def CommandLine(runCfgFN, runCfg):
 
   # multichannel model
   multiLayers = runCfg["multiChannelModel"]["Layers"]
-  multiInput = runCfg["multiChannelModel"]["Layers"]
+  multiInput = runCfg["multiChannelModel"]["Inputs"]
 
   # Other parameters
   imgExt = runCfg["others"]["imgExt"]

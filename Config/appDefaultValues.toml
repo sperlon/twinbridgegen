@@ -1,7 +1,7 @@
 # appDefaultValues.toml
 
 [appPaths]
-rootInPN   = "Input" # Path to the input working directory, in this path.
+rootInPN   = "" # Path to the input working directory, in this path.
 rootOutPN  = "Output" # Path to where you want to store the training data
 runCfgFN   = "runParsEx.toml"
 
@@ -15,7 +15,7 @@ trainingResultsDir = 'TrainingResults'
 predictionResultsDir = 'Prediction'
 
 [trainingDataset]
-dataFN       = "Kostomlaty_elastic_ANN_v2.xlsx"
+dataFN       = "Oslavany2-ANN_TM1M2M3_OUT.xlsx"
 inSheet      = "INPUT ANN"
 inColOffset  = 1
 outSheet     = "OUTPUT ANN"
@@ -24,15 +24,15 @@ inPars       = "#ALL#"
 outPars      = "#ALL#"
 
 [predictionDataset]
-dataFN       = "Prediction.xlsx"
+dataFN       = "Oslavany2-ANN_TM1M2M3_OUT.xlsx"
 inSheet      = "INPUT ANN"
 inColOffset  = 1
 inPars       = "#ALL#"
 
 [training]
 verbose         = 4
-testSize        = 0.2
-epochN          = 250
+testSize        = 0.05
+epochN          = 1250
 learningRate    = 10e-4
 loss            = "mean_squared_error"
 metrics         = "mae,mse"
@@ -42,7 +42,7 @@ xPlotGroups     = ""
 xPlotLabels     = ""
 
 [model]
-modelType = "denseModel"
+modelType = "multiChannelModel"
 
 [denseModel]
 Layers     = "16, 64, 128, 256, 512, 1024, 512, 256, 128, 64, 16"
@@ -62,8 +62,8 @@ max_iter = 2000
 print_freq = 100
 
 [multiChannelModel]
-Layers  = "[[['LSTM', 256], ['LSTM', 256], [Dense, 256, 'relu'], [Dense, 128, 'relu'], [Dense, 64, 'relu'], [Dense, 16, 'relu'], [Dense, 8]], [[Dense, 8, 'relu']]]"
-Inputs = "[[1], [2:]]"
+Layers  = "[[['LSTM', 256], ['LSTM', 256], ['Dense', 256, 'relu'], ['Dense', 128, 'relu'], ['Dense', 64, 'relu'], ['Dense', 16, 'relu'], ['Dense', 8]], [['Dense', 8, 'relu']]]"
+Inputs = "[[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25], [0]]"
 
 [others]
 imgExt          = 'jpg'
