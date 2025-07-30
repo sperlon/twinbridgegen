@@ -1,7 +1,7 @@
 # appDefaultValues.toml
 
 [appPaths]
-rootInPN   = "" # Path to the input working directory, in this path.
+rootInPN   = "Input" # Path to the input working directory, in this path.
 rootOutPN  = "Output" # Path to where you want to store the training data
 runCfgFN   = "runParsEx.toml"
 
@@ -13,18 +13,25 @@ projectDir = "Kostomlaty"
 modelDir = "Model"
 trainingResultsDir = 'TrainingResults'
 predictionResultsDir = 'Prediction'
+inverseResultsDir = 'InverseAnalysis'
 
 [trainingDataset]
-dataFN       = "Oslavany2-ANN_TM1M2M3_OUT.xlsx"
-inSheet      = "INPUT ANN"
+dataFN       = "Kostomlaty_elastic_ANN_LHS300.xlsx"
+inSheet      = "OUTPUT ANN"
 inColOffset  = 1
-outSheet     = "OUTPUT ANN"
+outSheet     = "INPUT ANN"
 outColOffset = 1
 inPars       = "#ALL#"
 outPars      = "#ALL#"
 
 [predictionDataset]
-dataFN       = "Oslavany2-ANN_TM1M2M3_OUT.xlsx"
+dataFN       = "Kostomlaty_elastic_ANN_LHS300.xlsx"
+inSheet      = "OUTPUT ANN"
+inColOffset  = 1
+inPars       = "#ALL#"
+
+[inverseAnalysisDataset]
+dataFN       = "Prediction.xlsx"
 inSheet      = "INPUT ANN"
 inColOffset  = 1
 inPars       = "#ALL#"
@@ -32,7 +39,7 @@ inPars       = "#ALL#"
 [training]
 verbose         = 4
 testSize        = 0.05
-epochN          = 1250
+epochN          = 400
 learningRate    = 10e-4
 loss            = "mean_squared_error"
 metrics         = "mae,mse"
@@ -42,23 +49,22 @@ xPlotGroups     = ""
 xPlotLabels     = ""
 
 [model]
-modelType = "multiChannelModel"
+modelType = "dividedDenseModel"
 
 [denseModel]
-Layers     = "16, 64, 128, 256, 512, 1024, 512, 256, 128, 64, 16"
+Layers     = "512, 1024, 512, 256, 128, 64, 16"
 
 [dividedDenseModel]
-Layers     = "16, 64, 128, 256, 512, 1024, 512, 256, 128, 64, 16"
-useInverse = "False"
+Layers     = "1024, 512, 256, 128, 64, 16"
 
 [dividedDenseModel.inverseParams]
 inverseLearningRate = 1e-2
 n_iter = 20
 return_best_only = "True"
-lower_limit = 0
-upper_limit = 0
+lower_limit = "[1000, 1000, 1000, 1000, 1000, 1000, -17000]"
+upper_limit = "[180000, 180000, 180000, 180000, 180000, 180000, -8000]"
 tolerance = 1e-7
-max_iter = 2000
+max_iter = 200
 print_freq = 100
 
 [multiChannelModel]

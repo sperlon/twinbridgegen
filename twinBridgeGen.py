@@ -38,7 +38,7 @@ from ndicts import NestedDict
 from Config import appDefaultValues
 from LibPy.InputDataReader import ReadInputData
 from LibPy.ParameterLearning import (DataPreparation, ParameterModelTraining,
-                                     ParameterModelEvaluation, ParameterModelTesting, Predicting)
+                                     ParameterModelEvaluation, ParameterModelTesting, Predicting, InverseAnalysis)
 
 Set_C = set
 
@@ -68,6 +68,7 @@ def CommandLine(runCfgFN, runCfg):
   modelDir = runCfg["runIds"]["modelDir"]
   trainingResultsDir = runCfg["runIds"]["trainingResultsDir"]
   predictionResultsDir = runCfg["runIds"]["predictionResultsDir"]
+  inverseResultsDir = runCfg["runIds"]["inverseResultsDir"]
 
   # Training dataset selection parameters
   trainingDataFN = runCfg["trainingDataset"]["dataFN"]
@@ -78,18 +79,28 @@ def CommandLine(runCfgFN, runCfg):
   predictionDataFN = runCfg["predictionDataset"]["dataFN"]
   predictionOutPars = runCfg["predictionDataset"]["inPars"]
 
+  # Inverse analysis dataset selection parameters
+  inverseAnalysisDataFN = runCfg["inverseAnalysisDataset"]["dataFN"]
+  inverseAnalysisOutPars = runCfg["inverseAnalysisDataset"]["inPars"]
+
   # Paths
   outPN_final = pathlib.Path(outPN, datasetDir, expTag)
+
   trainResultsPN = pathlib.Path(outPN_final, trainingResultsDir)
   modelPN = pathlib.Path(outPN_final, modelDir)
   predResultsPN = pathlib.Path(outPN_final, predictionResultsDir)
+  invAnResultsPN = pathlib.Path(outPN_final, inverseResultsDir)
+
   trainInPN = pathlib.Path(inPN, trainingDataFN)
   predInPN = pathlib.Path(inPN, predictionDataFN)
+  invAnInPN = pathlib.Path(inPN, inverseAnalysisDataFN)
+
 
   # Create necessary directories
   trainResultsPN.mkdir(parents=True, exist_ok=True)
   modelPN.mkdir(parents=True, exist_ok=True)
   predResultsPN.mkdir(parents=True, exist_ok=True)
+  invAnResultsPN.mkdir(parents=True, exist_ok=True)
 
   # Training parameters
   verbose  = runCfg["training"]["verbose"]
@@ -105,7 +116,6 @@ def CommandLine(runCfgFN, runCfg):
 
   # divided model definition
   dividedLayers = runCfg["dividedDenseModel"]["Layers"]
-  dividedUseInverse = runCfg["dividedDenseModel"]["useInverse"]
 
   inverseLearningRate = runCfg["dividedDenseModel"]["inverseParams"]["inverseLearningRate"]
   inverseNIter = runCfg ["dividedDenseModel"]["inverseParams"]["n_iter"]
@@ -129,6 +139,7 @@ def CommandLine(runCfgFN, runCfg):
 
   cliParser.add_argument('-isTraining',    default = False,         help = 'Training phase', action="store_true")
   cliParser.add_argument('-isPrediction',  default = False,         help = 'Prediction phase', action="store_true")
+  cliParser.add_argument('-isInverseAnalysis', default=False,    help='Prediction phase', action="store_true")
   cliParser.add_argument('-isTestingSubPart', default=False,        help = 'For development', action="store_true")
   cliParser.add_argument('-modelType',     default = modelType,     help = 'Specification of a model type that will be used')
   cliParser.add_argument('-runCfgFN',      default = runCfgFN,      help = 'Run configuration file (I)')
@@ -145,9 +156,9 @@ def CommandLine(runCfgFN, runCfg):
   cliParser.add_argument('-outPars',       default = trainingOutPars,       help = 'Output parameters (O)')
   cliParser.add_argument('-testSize',      default = testSize,      help = 'Part size of testing data (I)')
   cliParser.add_argument('-epochN',        default = epochN,        help = 'Number of learning epochs (I)', type=int)
+  cliParser.add_argument('-learningRate',        default = learningRate,        help = 'Number of learning epochs (I)', type=float)
   cliParser.add_argument('-denseLayers',   default=denseLayers, help='Dense model layer sizes (I)')
   cliParser.add_argument('-dividedLayers', default=dividedLayers, help='Divided model layer sizes (I)')
-  cliParser.add_argument('-dividedUseInverse', default=dividedUseInverse, help='Whether you want to find results using inverse analysis or use standard behavior. Inverse analysis can be only used with DividedModel (I)')
   cliParser.add_argument('-inverseLearningRate', default=inverseLearningRate, help='Learning rate for inverse analysis.')
   cliParser.add_argument('-inverseNIter', default=inverseNIter, help='Number of iterations used to find the results.')
   cliParser.add_argument('-inverseBestOnly', default=inverseBestOnly, help='Whether return only one best iteration or every iteration in output file.')
@@ -158,6 +169,8 @@ def CommandLine(runCfgFN, runCfg):
   cliParser.add_argument('-inverseMaxIter', default=inverseMaxIter, help='Divided model layer sizes (I)')
   cliParser.add_argument('-predictionDataFN', default = predictionDataFN, help = 'Prediction data path (I)')
   cliParser.add_argument('-predictionOutPars', default = predictionOutPars, help = 'Output parameters (O)')
+  cliParser.add_argument('-inverseAnalysisDataFN', default=inverseAnalysisDataFN, help='Prediction data path (I)')
+  cliParser.add_argument('-inverseAnalysisOutPars', default=inverseAnalysisOutPars, help='Output parameters (O)')
   cliParser.add_argument('-multiLayers', default=multiLayers, help='Multichannel model layer specification (I)')
   cliParser.add_argument('-multiInput', default=multiInput, help='Multichannel input layer specification (I)')
   cliParser.add_argument('-modelDir', default = modelDir, help = 'Model directory name (O)')
@@ -166,8 +179,10 @@ def CommandLine(runCfgFN, runCfg):
   cliParser.add_argument('-trainResultsPN', default=trainResultsPN, help='Path where the training results are stored (O)')
   cliParser.add_argument('-modelPN', default=modelPN, help='Path where the trained model is stored (O)')
   cliParser.add_argument('-predResultsPN', default=predResultsPN, help='Path where the prediction results are stored (O)')
+  cliParser.add_argument('-invAnResultsPN', default=invAnResultsPN, help='Path where the prediction results are stored (O)')
   cliParser.add_argument('-trainInPN', default=trainInPN, help='Path to the training dataset (I)')
   cliParser.add_argument('-predInPN', default=predInPN, help='Path to the prediction dataset (I)')
+  cliParser.add_argument('-invAnInPN', default=invAnInPN, help='Path to the prediction dataset (I)')
 
 
   options = cliParser.parse_args()
@@ -222,8 +237,13 @@ def TwinBridgeGen(appDefaultValues):
     ParameterModelTesting(setupOptions)
 
   if setupOptions.isPrediction:
-    dataPool = ReadInputData(setupOptions.predInPN, setupOptions.predResultsPN, setupOptions.verbose, runCfg, training=False)
+    dataPool = ReadInputData(setupOptions.predInPN, setupOptions.predResultsPN, setupOptions.verbose, runCfg, mode="prediction")
     Predicting(setupOptions, runCfg, dataPool)
+
+  if setupOptions.isInverseAnalysis:
+    dataPool = ReadInputData(setupOptions.invAnInPN, setupOptions.invAnResultsPN, setupOptions.verbose, runCfg, mode="inverseAnalysis")
+    InverseAnalysis(setupOptions, runCfg, dataPool)
+
   
 # =======================================================================
 # ===================== Resource Registration ===========================

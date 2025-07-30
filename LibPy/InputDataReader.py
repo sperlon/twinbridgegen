@@ -65,13 +65,13 @@ def PrepareSheetcfg(runCfg, training=True):
 # ===================== Main Functions ==================================
 # =======================================================================
 
-def ReadInputData(inPN, outPN, verbose, runCfg, training=True):
+def ReadInputData(inPN, outPN, verbose, runCfg, mode="training"):
   #=====================================
   verboseLevel = 3
   wb = openpyxl.load_workbook(inPN)
   if verbose > verboseLevel: print('sheetsN:', inPN, wb.sheetnames)
 
-  if training:
+  if mode == "training":
     inSheetName  = runCfg["trainingDataset"]["inSheet"].strip()
     inColOffset  = runCfg["trainingDataset"]["inColOffset"]
     outSheetName = runCfg["trainingDataset"]["outSheet"].strip()
@@ -79,12 +79,20 @@ def ReadInputData(inPN, outPN, verbose, runCfg, training=True):
     sheetNames = [inSheetName, outSheetName]
     sheetOffsets = [inColOffset, outColOffset]
 
-  else:
+  elif mode == "prediction":
     inSheetName = runCfg["predictionDataset"]["inSheet"].strip()
     inColOffset = runCfg["predictionDataset"]["inColOffset"]
     sheetNames = [inSheetName]
     sheetOffsets = [inColOffset]
 
+  elif mode == "inverseAnalysis":
+    inSheetName = runCfg["inverseAnalysisDataset"]["inSheet"].strip()
+    inColOffset = runCfg["inverseAnalysisDataset"]["inColOffset"]
+    sheetNames = [inSheetName]
+    sheetOffsets = [inColOffset]
+
+  else:
+    raise Exception(f"Invalid reading mode: '{mode}'.")
 
 
   if not Set_C(sheetNames) <= Set_C(wb.sheetnames):

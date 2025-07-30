@@ -154,7 +154,7 @@ def TrainModel(setupOptions, runCfg, xN, yN, xTrain, yTrain):
   modelType = setupOptions.modelType
   epochN          = setupOptions.epochN
   verbose         = setupOptions.verbose
-  learningRate    = runCfg['training']['learningRate']
+  learningRate    = setupOptions.learningRate
   loss            = runCfg['training']['loss']
   metrics         = runCfg['training']['metrics'].split(',')
   validationSplit = runCfg['training']['validationSplit']
@@ -168,6 +168,9 @@ def TrainModel(setupOptions, runCfg, xN, yN, xTrain, yTrain):
   if modelType == "denseModel":
     layers = [int(s) for s in setupOptions.denseLayers.split(',')]
     annModel = DenseModel(layers, xN, yN)
+  elif modelType == "dividedDenseModel":
+    layers = [int(s) for s in setupOptions.denseLayers.split(',')]
+    annModel = DividedModel(layers, xN, yN)
   elif modelType == "multiChannelModel":
     layers = ast.literal_eval(setupOptions.multiLayers)
     inp_slices, inp_dims = get_column_indices(setupOptions.multiInput, outParNames)
@@ -362,6 +365,8 @@ def ParameterModelTraining(setupOptions, runCfg):
   yN = len(yTrain[0])
   annModel, history = TrainModel(setupOptions, runCfg, xN, yN, xTrain, yTrain)
   annModel.save(modelPN / f'annModel.keras')
+  with open(modelPN / 'modelType.txt', 'w') as file:
+    file.write(setupOptions.modelType)
 
   if setupOptions.verbose > 2:
     # Some graphical output
@@ -517,6 +522,46 @@ def Predicting(setupOptions, runCfg, dataPool):
     outParNames = pickle.load(inF)
   # Save output as CSV
   WriteToCsv(yOutScaled, outPN / f'parPredict.csv', outParNames)
+
+
+def InverseAnalysis(setupOptions, runCfg, dataPool):
+  modelPN = setupOptions.modelPN
+  with open(modelPN / "modelType.txt", 'r') as file:
+    modelType = file.read()
+  outPN = setupOptions.invAnResultsPN
+
+  inSheetName = runCfg['inverseAnalysisDataset']['inSheet']
+
+  inParNames = dataPool[inSheetName]['colNames'][1:]  # skip the index
+
+  inData = pd.DataFrame(dataPool[inSheetName]['data'],
+                        index=dataPool[inSheetName]['index'],
+                        columns=dataPool[inSheetName]['colNames'])
+  xData = inData[inParNames].to_numpy()
+
+  annModel = load_model(modelPN / f'annModel.keras')
+
+  # Check whether the data have correct shape
+  data_input_shape = (None,) + xData.shape[1:]
+  model_output_shape = annModel.output_shape
+  if data_input_shape != model_output_shape:
+    raise ValueError(
+      f'''The shape of the data you want to do inverse analysis differs from the output shape of the model. Are you sure
+        you specified the for the inverse analysis correctly?
+        Expected shape (Model output shape): {model_output_shape}
+        Input shape of specified inverse analysis dataset: {data_input_shape}'''
+    )
+
+  xScaler = RangeScaler_C()
+  xScaler.Load(modelPN / f'xScaler.pck')
+  yScaler = RangeScaler_C()
+  yScaler.Load(modelPN / f'yScaler.pck')
+
+  xPredict = yScaler.transform(xData)
+
+  print("")
+
+
       
 
 # =======================================================================

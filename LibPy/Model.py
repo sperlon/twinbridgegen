@@ -141,6 +141,11 @@ class MultiChannelModelC(tf.keras.Model):
       total_features = sum(self.inp_dims) if self.inp_dims else None
       return (None, total_features) if total_features else None
 
+    @property
+    def output_shape(self):
+      """Return the output shape of the model"""
+      return (None, self.out_dim) if self.out_dim else None
+
 
 # Register the custom class for serialization (older TensorFlow/Keras versions)
 tf.keras.utils.get_custom_objects()['MultiChannelModelC'] = MultiChannelModelC
@@ -182,16 +187,28 @@ class DividedModel(tf.keras.Model):
   such a purpose I recommend to use only SGD, since the first two are unstable and most the time unable to converge
    """
 
-  def __init__(self, layers, inp_dim, out_dim, act="relu", **kwargs):
+  def __init__(self, layers=None, inp_dim=None, out_dim=None, act="relu", **kwargs):
     super().__init__(**kwargs)
+
+    # Store parameters for serialization
+    self.layers_config = layers
     self.inp_dim = inp_dim
     self.out_dim = out_dim
+    self.act = act
     self.sub_models = []
+
+    # Only build the model if all parameters are provided
+    if all(param is not None for param in [layers, inp_dim, out_dim]):
+      self._build_model()
+
+  def _build_model(self):
+    """Build the internal model structure"""
     # creation of submodels for each output parameter
-    for o in range(out_dim):
-      sub_model = tf.keras.Sequential([tf.keras.layers.Dense(layers[0], activation=act, input_shape=[inp_dim])])
-      for l in range(1, len(layers)):
-        sub_model.add(tf.keras.layers.Dense(layers[l], activation=act))
+    for o in range(self.out_dim):
+      sub_model = tf.keras.Sequential(
+        [tf.keras.layers.Dense(self.layers_config[0], activation=self.act, input_shape=[self.inp_dim])])
+      for l in range(1, len(self.layers_config)):
+        sub_model.add(tf.keras.layers.Dense(self.layers_config[l], activation=self.act))
       sub_model.add(tf.keras.layers.Dense(1))
       self.sub_models.append(sub_model)
 
@@ -203,6 +220,38 @@ class DividedModel(tf.keras.Model):
         self.sub_models[o](inputs))  # make prediction of output member (strain) by subnetwork and store it
     output = tf.keras.layers.Concatenate(axis=1)(part_outputs)  # concatenate the output to final output vector
     return output
+
+  def get_config(self):
+    """Return the configuration of the model for serialization"""
+    config = super().get_config()
+    config.update({
+      'layers': self.layers_config,
+      'inp_dim': self.inp_dim,
+      'out_dim': self.out_dim,
+      'act': self.act
+    })
+    return config
+
+  @classmethod
+  def from_config(cls, config):
+    """Create an instance from config for deserialization"""
+    return cls(**config)
+
+  def build(self, input_shape):
+    """Build the model when input shape is known"""
+    if not hasattr(self, 'sub_models') or len(self.sub_models) == 0:
+      self._build_model()
+    super().build(input_shape)
+
+  @property
+  def input_shape(self):
+    """Return the input shape of the model"""
+    return (None, self.inp_dim) if self.inp_dim else None
+
+  @property
+  def output_shape(self):
+    """Return the output shape of the model"""
+    return (None, self.out_dim) if self.out_dim else None
 
   # SGD - stochastic gradient descent
   # ------------------------------------------------------------------------------------------------------------------
@@ -252,3 +301,7 @@ class DividedModel(tf.keras.Model):
         print(f"Iteration {i}: loss = {l.numpy()}")
         break
     return result
+
+
+# Register the custom class for serialization (older TensorFlow/Keras versions)
+tf.keras.utils.get_custom_objects()['DividedModel'] = DividedModel
