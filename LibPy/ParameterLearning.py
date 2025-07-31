@@ -43,7 +43,7 @@ from keras.optimizers import Adam
 from keras.utils import plot_model
 from LibPy.ParallelWorkers import WorkerManager_C
 from LibPy import GraphicWorkers
-from LibPy.Model import DenseModel, MultiChannelModelC, DividedModel
+from LibPy.Model import DenseModel, MultiChannelModelC, DividedModel, find_input_SGD_based
 from typing import Any, List, Dict, Union, Tuple
 Set_C = set
 
@@ -526,8 +526,6 @@ def Predicting(setupOptions, runCfg, dataPool):
 
 def InverseAnalysis(setupOptions, runCfg, dataPool):
   modelPN = setupOptions.modelPN
-  with open(modelPN / "modelType.txt", 'r') as file:
-    modelType = file.read()
   outPN = setupOptions.invAnResultsPN
 
   inSheetName = runCfg['inverseAnalysisDataset']['inSheet']
@@ -537,17 +535,23 @@ def InverseAnalysis(setupOptions, runCfg, dataPool):
   inData = pd.DataFrame(dataPool[inSheetName]['data'],
                         index=dataPool[inSheetName]['index'],
                         columns=dataPool[inSheetName]['colNames'])
-  xData = inData[inParNames].to_numpy()
+  modelOutputData = inData[inParNames].to_numpy()
 
   annModel = load_model(modelPN / f'annModel.keras')
 
+  with open(modelPN / 'inParNames.pck', 'rb') as inF:
+    inParNames = pickle.load(inF)
+  with open(modelPN / 'outParNames.pck', 'rb') as inF:
+    outParNames = pickle.load(inF)
+
   # Check whether the data have correct shape
-  data_input_shape = (None,) + xData.shape[1:]
+  data_input_shape = (None,) + modelOutputData.shape[1:]
   model_output_shape = annModel.output_shape
   if data_input_shape != model_output_shape:
     raise ValueError(
-      f'''The shape of the data you want to do inverse analysis differs from the output shape of the model. Are you sure
-        you specified the for the inverse analysis correctly?
+      f'''The shape of the data you want to do inverse analysis differs
+       from the output shape of the model. Are you sure you specified the
+        for the inverse analysis correctly?
         Expected shape (Model output shape): {model_output_shape}
         Input shape of specified inverse analysis dataset: {data_input_shape}'''
     )
@@ -557,9 +561,67 @@ def InverseAnalysis(setupOptions, runCfg, dataPool):
   yScaler = RangeScaler_C()
   yScaler.Load(modelPN / f'yScaler.pck')
 
-  xPredict = yScaler.transform(xData)
+  outputPredict = yScaler.transform(modelOutputData)
 
-  print("")
+  lower_limit_ = np.array(ast.literal_eval(setupOptions.inverseLowerLim))[None, :]
+  upper_limit_ = np.array(ast.literal_eval(setupOptions.inverseUpperLim))[None, :]
+  lower_limit = xScaler.transform(lower_limit_)
+  upper_limit = xScaler.transform(upper_limit_)
+
+  learningRate = setupOptions.inverseLearningRate
+  nIter = setupOptions.inverseNIter
+  bestOnly = bool(setupOptions.inverseBestOnly)
+  toler = setupOptions.inverseToler
+  printFreq = setupOptions.inversePrintFreq
+  maxIter = setupOptions.inverseMaxIter
+
+  all_inps = []
+  all_outs = []
+  all_ls = []
+  all_nOs = [] # indexes of outputs
+  all_nIs = [] # indexes of iteration
+
+  o = 1
+  for out in outputPredict:
+    inps = []
+    outs = []
+    ls = []
+    nOs = []
+    nIs = []
+
+    for i in range(1, nIter+1):
+      opt = tf.keras.optimizers.Adam(learning_rate=learningRate)
+      inp = np.random.random_sample(*annModel.input_shape[1:])[None,:]
+      found_input_, l = find_input_SGD_based(annModel, out, inp, opt, lower_limit, upper_limit, toler, maxIter, printFreq)
+      found_output_ = annModel(found_input_)
+      found_input = xScaler.inverse_transform(found_input_)
+      found_output = yScaler.inverse_transform(found_output_)
+
+      inps.append(list(found_input.flatten()))
+      outs.append(list(found_output.flatten()))
+      ls.append([float(l)])
+      nOs.append([o])
+      nIs.append([i])
+
+    if bestOnly:
+      best_idx = np.argmin(np.array(ls))
+
+      all_inps.append(inps[best_idx])
+      all_outs.append(outs[best_idx])
+      all_ls.append(ls[best_idx])
+      all_nOs.append(nOs[best_idx])
+      all_nIs.append(nIs[best_idx])
+    else:
+      all_inps += inps
+      all_outs += outs
+      all_ls += ls
+      all_nOs += nOs
+      all_nIs += nIs
+    o += 1
+
+  results = np.concatenate([all_nOs, all_nIs, all_ls, all_inps, all_outs], axis=1)
+  col_names = ["Output ID", "Iteration ID", "Loss value (Residuum)"] + inParNames + outParNames
+  WriteToCsv(results, outPN / f'parPredict.csv', col_names)
 
 
       

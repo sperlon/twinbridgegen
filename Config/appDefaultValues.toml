@@ -16,17 +16,17 @@ predictionResultsDir = 'Prediction'
 inverseResultsDir = 'InverseAnalysis'
 
 [trainingDataset]
-dataFN       = "Kostomlaty_elastic_ANN_LHS300.xlsx"
-inSheet      = "OUTPUT ANN"
+dataFN       = "Oslavany2-ANN_TM1M2M3_OUT.xlsx"
+inSheet      = "INPUT ANN"
 inColOffset  = 1
-outSheet     = "INPUT ANN"
+outSheet     = "OUTPUT ANN"
 outColOffset = 1
 inPars       = "#ALL#"
 outPars      = "#ALL#"
 
 [predictionDataset]
-dataFN       = "Kostomlaty_elastic_ANN_LHS300.xlsx"
-inSheet      = "OUTPUT ANN"
+dataFN       = "Oslavany2-ANN_TM1M2M3_OUT.xlsx"
+inSheet      = "INPUT ANN"
 inColOffset  = 1
 inPars       = "#ALL#"
 
@@ -39,7 +39,7 @@ inPars       = "#ALL#"
 [training]
 verbose         = 4
 testSize        = 0.05
-epochN          = 400
+epochN          = 1250
 learningRate    = 10e-4
 loss            = "mean_squared_error"
 metrics         = "mae,mse"
@@ -47,6 +47,16 @@ validationSplit = 0.2
 randomSeed      = 42
 xPlotGroups     = ""
 xPlotLabels     = ""
+
+[inverseAnalysis]
+inverseLearningRate = 1e-2
+n_iter = 2
+return_best_only = false
+lower_limit = "[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]"
+upper_limit = "[40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40]"
+tolerance = 1e-7
+max_iter = 200
+print_freq = 100
 
 [model]
 modelType = "dividedDenseModel"
@@ -56,16 +66,6 @@ Layers     = "512, 1024, 512, 256, 128, 64, 16"
 
 [dividedDenseModel]
 Layers     = "1024, 512, 256, 128, 64, 16"
-
-[dividedDenseModel.inverseParams]
-inverseLearningRate = 1e-2
-n_iter = 20
-return_best_only = "True"
-lower_limit = "[1000, 1000, 1000, 1000, 1000, 1000, -17000]"
-upper_limit = "[180000, 180000, 180000, 180000, 180000, 180000, -8000]"
-tolerance = 1e-7
-max_iter = 200
-print_freq = 100
 
 [multiChannelModel]
 Layers  = "[[['LSTM', 256], ['LSTM', 256], ['Dense', 256, 'relu'], ['Dense', 128, 'relu'], ['Dense', 64, 'relu'], ['Dense', 16, 'relu'], ['Dense', 8]], [['Dense', 8, 'relu']]]"

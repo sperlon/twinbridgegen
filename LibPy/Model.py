@@ -181,10 +181,6 @@ class DividedModel(tf.keras.Model):
 
   I designed this architecture specifically for the prediction of strain from material parameters, but if it proves advantageous,
   it can be used anywhere.
-
-  Further there are methods for searching a corresponding input to given output (I want to find material parameters for
-  specified strains). The newton´s method, the Gauss-newton´s method and SGD - stochastic gradient descent. However, for
-  such a purpose I recommend to use only SGD, since the first two are unstable and most the time unable to converge
    """
 
   def __init__(self, layers=None, inp_dim=None, out_dim=None, act="relu", **kwargs):
@@ -253,55 +249,56 @@ class DividedModel(tf.keras.Model):
     """Return the output shape of the model"""
     return (None, self.out_dim) if self.out_dim else None
 
-  # SGD - stochastic gradient descent
-  # ------------------------------------------------------------------------------------------------------------------
-  # Getting the gradient with respect to input
-  @tf.function  # this is a decorator that specifies for tensorflow to convert this method into the computational graph. As a result the computation is significantly faster and can run on GPU
-  def get_grad_output_input(self, output, input):
-    with tf.GradientTape() as tape:
-      pred = self.call(input)
-      l = tf.reduce_sum(tf.square(output - pred))
-
-    grad = tape.gradient(l, input)
-    return grad, l
-
-  # This method search for optimal input for given output using gradient descent.
-  # You can specify lower and upper limit for each parameter, tolerance (L2 norm between model prediction and searched output),
-  # number of iterations and print_freq
-  def find_input_SGD_based(self, output, input, optimizer, lower_limit=None, upper_limit=None, tolerance=1e-3,
-                           max_iter=500, print_freq=100):
-    out_ = tf.cast(output, tf.float32)
-    inp_ = tf.cast(input, tf.float32)
-    inp0 = tf.Variable(inp_, trainable=True)
-    result = inp0.value()
-
-    for i in range(max_iter):
-      grad, l = self.get_grad_output_input(out_, inp0)
-      optimizer.apply_gradients([(grad, inp0)])
-
-      # check whether the parameters don´t exceed the limits
-      if lower_limit is not None:
-        if tf.reduce_any(inp0 < lower_limit):
-          print("Lower limit broken")
-          break
-
-      elif upper_limit is not None:
-        if tf.reduce_any(inp0 > upper_limit):
-          print("Upper limit broken")
-          break
-
-      result = inp0.value()
-
-      # print the loss value after the specified frequency, last iteration or when tolerance is achieved
-      if i == 0 or i == max_iter - 1:
-        print(f"Iteration {i}: loss = {l.numpy()}")
-      elif (i + 1) % print_freq == 0:
-        print(f"Iteration {i}: loss = {l.numpy()}")
-      if l <= tolerance:
-        print(f"Iteration {i}: loss = {l.numpy()}")
-        break
-    return result
-
 
 # Register the custom class for serialization (older TensorFlow/Keras versions)
 tf.keras.utils.get_custom_objects()['DividedModel'] = DividedModel
+
+# SGD - stochastic gradient descent
+# ------------------------------------------------------------------------------------------------------------------
+# Getting the gradient with respect to input
+@tf.function  # this is a decorator that specifies for tensorflow to convert this method into the computational graph. As a result the computation is significantly faster and can run on GPU
+def get_grad_output_input(model, output, input):
+  with tf.GradientTape() as tape:
+    pred = model(input)
+    l = tf.reduce_sum(tf.square(output - pred))
+
+  grad = tape.gradient(l, input)
+  return grad, l
+
+
+# This method search for optimal input for given output using gradient descent.
+# You can specify lower and upper limit for each parameter, tolerance (L2 norm between model prediction and searched output),
+# number of iterations and print_freq
+def find_input_SGD_based(model, output, input, optimizer, lower_limit=None, upper_limit=None, tolerance=1e-3,
+                         max_iter=500, print_freq=100):
+  out_ = tf.cast(output, tf.float32)
+  inp_ = tf.cast(input, tf.float32)
+  inp0 = tf.Variable(inp_, trainable=True)
+  result = inp0.value()
+  l = 0
+  for i in range(max_iter):
+    grad, l = get_grad_output_input(model, out_, inp0)
+    optimizer.apply_gradients([(grad, inp0)])
+
+    # check whether the parameters don´t exceed the limits
+    if lower_limit is not None:
+      if tf.reduce_any(inp0 < lower_limit):
+        print("Lower limit broken")
+        break
+
+    elif upper_limit is not None:
+      if tf.reduce_any(inp0 > upper_limit):
+        print("Upper limit broken")
+        break
+
+    result = inp0.value()
+
+    # print the loss value after the specified frequency, last iteration or when tolerance is achieved
+    if i == 0 or i == max_iter - 1:
+      print(f"Iteration {i}: loss = {l.numpy()}")
+    elif (i + 1) % print_freq == 0:
+      print(f"Iteration {i}: loss = {l.numpy()}")
+    if l <= tolerance:
+      print(f"Iteration {i}: loss = {l.numpy()}")
+      break
+  return result, l

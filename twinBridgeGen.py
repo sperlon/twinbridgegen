@@ -117,14 +117,15 @@ def CommandLine(runCfgFN, runCfg):
   # divided model definition
   dividedLayers = runCfg["dividedDenseModel"]["Layers"]
 
-  inverseLearningRate = runCfg["dividedDenseModel"]["inverseParams"]["inverseLearningRate"]
-  inverseNIter = runCfg ["dividedDenseModel"]["inverseParams"]["n_iter"]
-  inverseBestOnly = runCfg["dividedDenseModel"]["inverseParams"]["return_best_only"]
-  inverseLowerLim = runCfg["dividedDenseModel"]["inverseParams"]["lower_limit"]
-  inverseUpperLim = runCfg["dividedDenseModel"]["inverseParams"]["upper_limit"]
-  inverseToler = runCfg["dividedDenseModel"]["inverseParams"]["tolerance"]
-  inverseMaxIter = runCfg["dividedDenseModel"]["inverseParams"]["max_iter"]
-  inversePrintFreq = runCfg["dividedDenseModel"]["inverseParams"]["print_freq"]
+  # inverse analysis
+  inverseLearningRate = runCfg["inverseAnalysis"]["inverseLearningRate"]
+  inverseNIter = runCfg["inverseAnalysis"]["n_iter"]
+  inverseBestOnly = runCfg["inverseAnalysis"]["return_best_only"]
+  inverseLowerLim = runCfg["inverseAnalysis"]["lower_limit"]
+  inverseUpperLim = runCfg["inverseAnalysis"]["upper_limit"]
+  inverseToler = runCfg["inverseAnalysis"]["tolerance"]
+  inverseMaxIter = runCfg["inverseAnalysis"]["max_iter"]
+  inversePrintFreq = runCfg["inverseAnalysis"]["print_freq"]
 
   # multichannel model
   multiLayers = runCfg["multiChannelModel"]["Layers"]
@@ -179,10 +180,10 @@ def CommandLine(runCfgFN, runCfg):
   cliParser.add_argument('-trainResultsPN', default=trainResultsPN, help='Path where the training results are stored (O)')
   cliParser.add_argument('-modelPN', default=modelPN, help='Path where the trained model is stored (O)')
   cliParser.add_argument('-predResultsPN', default=predResultsPN, help='Path where the prediction results are stored (O)')
-  cliParser.add_argument('-invAnResultsPN', default=invAnResultsPN, help='Path where the prediction results are stored (O)')
+  cliParser.add_argument('-invAnResultsPN', default=invAnResultsPN, help='Path where the results from inverse analysis are stored (O)')
   cliParser.add_argument('-trainInPN', default=trainInPN, help='Path to the training dataset (I)')
   cliParser.add_argument('-predInPN', default=predInPN, help='Path to the prediction dataset (I)')
-  cliParser.add_argument('-invAnInPN', default=invAnInPN, help='Path to the prediction dataset (I)')
+  cliParser.add_argument('-invAnInPN', default=invAnInPN, help='Path to the inverse analysis dataset (I)')
 
 
   options = cliParser.parse_args()
